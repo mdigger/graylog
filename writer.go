@@ -8,55 +8,64 @@ import (
 	"io"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"golang.org/x/exp/slog"
 )
 
+// Used when generating a log message in GELF format.
+// If you want to change this value, then this must be done before initializing
+// the log.
+var Facility string
+
 // Logger is an io.Logger for sending log messages to the Graylog server.
 type Logger struct {
 	*slog.Logger
-	conn  net.Conn
-	isUDP bool
+	conn     net.Conn
+	isUDP    bool
+	host     string
+	facility string
 }
 
-// Dial establishes a connection to the Graylog server and returns Writer to
+// Dial establishes a connection to the Graylog server and returns Logger to
 // send log messages.
 //
 // Supported networks are "tcp", "tcp4" (IPv4-only), "tcp6" (IPv6-only), "udp",
 // "udp4" (IPv4-only), "udp6" (IPv6-only).
-//
-// The address has the form "host:port". The host must be a literal IP address,
-// or a host name that can be resolved to IP addresses. The port must be a
-// literal port number or a service name. If the host is a literal IPv6 address
-// it must be enclosed in square brackets, as in "[2001:db8::1]:80" or
-// "[fe80::1%zone]:80". The zone specifies the scope of the literal IPv6
-// address as defined in RFC 4007. The functions net.JoinHostPort and
-// net.SplitHostPort manipulate a pair of host and port in this form.
-//
-// When using TCP, and the host resolves to multiple IP addresses, Dial will
-// try each IP address in order until one succeeds.
-//
-// Example:
-//
-//	Dial("udp", "198.51.100.1:12201")
-//	Dial("udp", "[2001:db8::1]:12201")
-//	Dial("tcp", "198.51.100.1:12201")
-//
 // When using UDP as a transport layer, the messages sent are compressed using
 // GZIP and automatically chunked.
-func Dial(network, address string) (*Logger, error) {
+//
+// Attrs specify a list of attributes that will be added to all messages sent
+// to Graylog server.
+func Dial(network, address string, attrs ...slog.Attr) (*Logger, error) {
+	host, err := os.Hostname()
+	if err != nil {
+		return nil, err
+	}
+
 	conn, err := net.Dial(network, address)
 	if err != nil {
 		return nil, err
 	}
 
-	w := &Logger{
-		conn:  conn,
-		isUDP: strings.HasPrefix(network, "udp"),
+	facility := strings.TrimSpace(Facility)
+	if facility == "" {
+		facility = filepath.Base(os.Args[0])
 	}
 
-	w.Logger = slog.New(&handler{w: w})
+	w := &Logger{
+		conn:     conn,
+		isUDP:    strings.HasPrefix(network, "udp"),
+		host:     host,
+		facility: facility,
+	}
+
+	var handler slog.Handler = &handler{w: w}
+	if len(attrs) > 0 {
+		handler = handler.WithAttrs(attrs)
+	}
+	w.Logger = slog.New(handler)
 
 	return w, nil
 }
@@ -66,7 +75,7 @@ func (w *Logger) Close() error {
 	return w.conn.Close()
 }
 
-// LogValue return log value with connection info.
+// LogValue return log value with connection info (network & address).
 func (w *Logger) LogValue() slog.Value {
 	if w.conn == nil {
 		return slog.Value{}
@@ -82,17 +91,21 @@ func (w *Logger) LogValue() slog.Value {
 // ErrMessageToLarge returns when trying to send too long message other UDP.
 var ErrMessageToLarge = errors.New("message too large")
 
+var debug = false // output gelf json before send
+
 // write send a GELF message to the server.
 func (w *Logger) write(b []byte) error {
 	if len(b) == 0 {
 		return nil
 	}
 
-	// FIXME: debug
-	enc := json.NewEncoder(os.Stdout)
-	enc.SetIndent("", "  ")
-	if err := enc.Encode(json.RawMessage(b)); err != nil {
-		return err
+	// debug output
+	if debug {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(json.RawMessage(b)); err != nil {
+			return err
+		}
 	}
 
 	// send other TCP

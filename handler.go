@@ -2,7 +2,9 @@ package graylog
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
+	"time"
 
 	"golang.org/x/exp/slog"
 )
@@ -23,19 +25,59 @@ func (h *handler) Handle(r slog.Record) error {
 	buf := newBuffer()
 	defer bufPool.Put(buf)
 
-	writeMessage(buf, level(r.Level), r.Message, r.Time, func() {
+	// GELF header
+	buf.WriteString(`{"version":"1.1","host":`)
+	buf.WriteString(strconv.QuoteToASCII(h.w.host))
+
+	// truncate short message
+	title := truncate(r.Message, 120, 60)
+	if title == "" {
+		title = r.Message
+	}
+	buf.WriteString(`,"short_message":`)
+	buf.WriteString(strconv.Quote(title))
+
+	// write full message if different from title
+	if title != r.Message {
+		buf.WriteString(`,"full_message":`)
+		buf.WriteString(strconv.Quote(r.Message))
+	}
+
+	// timestamp if defined
+	if !r.Time.IsZero() {
+		buf.WriteString(`,"timestamp":`)
+		buf.WriteString(strconv.FormatFloat(
+			float64(r.Time.UnixNano())/float64(time.Second), 'f', -1, 64))
+	}
+
+	// level
+	buf.WriteString(`,"level":`)
+	buf.WriteString(strconv.FormatUint(uint64(level(r.Level)), 10))
+
+	// facility if defined
+	if h.w.facility != "" {
+		buf.WriteString(`,"_facility":`)
+		buf.WriteString(strconv.Quote(h.w.facility))
+	}
+
+	// add source file info on warning and errors only
+	if r.Level >= slog.WarnLevel {
 		if file, line := r.SourceLine(); line != 0 {
 			writeAttrValue(buf, "file", fmt.Sprint(file, ":", line))
 		}
+	}
 
-		if len(h.attrs) > 0 {
-			buf.Write(h.attrs)
-		}
+	// add stored attributes
+	if len(h.attrs) > 0 {
+		buf.Write(h.attrs)
+	}
 
-		r.Attrs(func(attr slog.Attr) {
-			writeAttr(buf, attr, h.group)
-		})
+	// add record attributes
+	r.Attrs(func(attr slog.Attr) {
+		writeAttr(buf, attr, h.group)
 	})
+
+	buf.WriteByte('}') // the end
 
 	return h.w.write(buf.Bytes())
 }
