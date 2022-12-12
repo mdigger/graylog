@@ -2,7 +2,6 @@ package graylog
 
 import (
 	"encoding"
-	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -39,8 +38,8 @@ func writeAttrValue(w *buffer.Buffer, name string, value any) error {
 	switch name {
 	case "":
 		return nil
-	case "id":
-		return errors.New(`unsupported attribute name "id"`)
+	case "id", "source", "message", "full_message", "level", "timestamp", "facility":
+		name += "_" // добавляем уникальность уже используемым названиям полей graylog
 	}
 
 	w.WriteString(`,"`)
