@@ -3,20 +3,15 @@ package graylog
 import (
 	"compress/gzip"
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"net"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/mdigger/graylog/internal/buffer"
 	"golang.org/x/exp/slog"
 )
-
-// Used when generating a log message in GELF format.
-// If you want to change this value, then this must be done before initializing
-// the log.
-var Facility string
 
 // Logger is an io.Logger for sending log messages to the Graylog server.
 type Logger struct {
@@ -48,16 +43,11 @@ func Dial(network, address string, attrs ...slog.Attr) (*Logger, error) {
 		return nil, err
 	}
 
-	facility := strings.TrimSpace(Facility)
-	if facility == "" {
-		facility = filepath.Base(os.Args[0])
-	}
-
 	w := Logger{
 		conn:     conn,
 		isUDP:    strings.HasPrefix(network, "udp"),
 		host:     host,
-		facility: facility,
+		facility: strings.TrimSpace(Facility), // copy to handler,
 	}
 
 	var handler slog.Handler = handler{w: w}
@@ -90,7 +80,7 @@ func (w Logger) LogValue() slog.Value {
 // ErrMessageToLarge returns when trying to send too long message other UDP.
 var ErrMessageToLarge = errors.New("message too large")
 
-var debug = false // output gelf json before send
+var debugOutput = false // output gelf json before send
 
 // write send a GELF message to the server.
 func (w Logger) write(b []byte) error {
@@ -98,14 +88,14 @@ func (w Logger) write(b []byte) error {
 		return nil
 	}
 
-	// // debug output
-	// if debug {
-	// 	enc := json.NewEncoder(os.Stdout)
-	// 	enc.SetIndent("", "  ")
-	// 	if err := enc.Encode(json.RawMessage(b)); err != nil {
-	// 		return err
-	// 	}
-	// }
+	// debug output
+	if debugOutput {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(json.RawMessage(b)); err != nil {
+			return err
+		}
+	}
 
 	// send other TCP
 	if !w.isUDP {

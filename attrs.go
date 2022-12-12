@@ -38,7 +38,7 @@ func writeAttrValue(w *buffer.Buffer, name string, value any) error {
 	switch name {
 	case "":
 		return nil
-	case "id", "source", "message", "full_message", "level", "timestamp", "facility":
+	case "id", "source", "message", "full_message", "level", "timestamp", "facility", "file":
 		name += "_" // добавляем уникальность уже используемым названиям полей graylog
 	}
 
