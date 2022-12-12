@@ -3,7 +3,6 @@ package graylog
 import (
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/mdigger/graylog/internal/buffer"
@@ -114,7 +113,7 @@ func (h handler) WithGroup(name string) slog.Handler {
 	}
 
 	if h.group != "" {
-		name = strings.Join([]string{h.group, name}, "_")
+		name = h.group + "_" + name
 	}
 
 	return handler{

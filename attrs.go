@@ -18,7 +18,7 @@ func writeAttr(w *buffer.Buffer, attr slog.Attr, prefix string) {
 
 	name := attr.Key
 	if prefix != "" {
-		name = strings.Join([]string{prefix, name}, "_")
+		name = prefix + "_" + name
 	}
 
 	switch attr.Value.Kind() {
@@ -121,5 +121,5 @@ func fixName(s string) string {
 		return buf.String()
 	})
 
-	return strings.Join([]string{"_", s}, "")
+	return "_" + s
 }
