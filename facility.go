@@ -18,7 +18,9 @@ func init() {
 	var name string
 	if buildInfo, ok := debug.ReadBuildInfo(); ok {
 		name = buildInfo.Main.Path
-	} else {
+	}
+
+	if name == "" {
 		name = filepath.Base(os.Args[0])
 		name = name[:len(name)-len(filepath.Ext(name))]
 	}
