@@ -6,24 +6,25 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mdigger/graylog/internal/buffer"
 	"golang.org/x/exp/slog"
 )
 
 type handler struct {
-	w     *Logger
+	w     Logger
 	group string
 	attrs []byte
 }
 
 // Enabled reports whether the handler handles records at the slog.DebugLevel.
-func (h *handler) Enabled(l slog.Level) bool {
+func (h handler) Enabled(l slog.Level) bool {
 	return l >= slog.DebugLevel
 }
 
 // Handle send the log Record to Graylog server.
-func (h *handler) Handle(r slog.Record) error {
-	buf := newBuffer()
-	defer bufPool.Put(buf)
+func (h handler) Handle(r slog.Record) error {
+	buf := buffer.New()
+	defer buf.Free()
 
 	// GELF header
 	buf.WriteString(`{"version":"1.1","host":`)
@@ -63,7 +64,7 @@ func (h *handler) Handle(r slog.Record) error {
 	// add source file info on warning and errors only
 	if r.Level >= slog.WarnLevel {
 		if file, line := r.SourceLine(); line != 0 {
-			writeAttrValue(buf, "file", fmt.Sprint(file, ":", line))
+			writeAttrValue(buf, "file", fmt.Sprint(file, ":", line)) // FIXME: escapes to heap
 		}
 	}
 
@@ -79,27 +80,27 @@ func (h *handler) Handle(r slog.Record) error {
 
 	buf.WriteByte('}') // the end
 
-	return h.w.write(buf.Bytes())
+	return h.w.write(*buf)
 }
 
 // WithAttrs returns a new Handler whose attributes consist of
 // both the receiver's attributes and the arguments.
-func (h *handler) WithAttrs(attrs []slog.Attr) slog.Handler {
+func (h handler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	if len(attrs) == 0 {
 		return h
 	}
 
-	buf := newBuffer()
-	defer bufPool.Put(buf)
+	buf := buffer.New()
+	defer buf.Free()
 
 	for _, attr := range attrs {
 		writeAttr(buf, attr, h.group)
 	}
 
-	return &handler{
+	return handler{
 		w:     h.w,
 		group: h.group,
-		attrs: append(h.attrs, buf.Bytes()...),
+		attrs: append(h.attrs, *buf...),
 	}
 }
 
@@ -107,7 +108,7 @@ func (h *handler) WithAttrs(attrs []slog.Attr) slog.Handler {
 // the receiver's existing groups.
 // The keys of all subsequent attributes, whether added by With or in a
 // Record, should be qualified by the sequence of group names.
-func (h *handler) WithGroup(name string) slog.Handler {
+func (h handler) WithGroup(name string) slog.Handler {
 	if len(name) == 0 {
 		return h
 	}
@@ -116,7 +117,7 @@ func (h *handler) WithGroup(name string) slog.Handler {
 		name = strings.Join([]string{h.group, name}, "_")
 	}
 
-	return &handler{
+	return handler{
 		w:     h.w,
 		group: name,
 		attrs: h.attrs,

@@ -3,14 +3,13 @@ package graylog
 import (
 	"compress/gzip"
 	"crypto/rand"
-	"encoding/json"
 	"errors"
-	"io"
 	"net"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/mdigger/graylog/internal/buffer"
 	"golang.org/x/exp/slog"
 )
 
@@ -54,29 +53,29 @@ func Dial(network, address string, attrs ...slog.Attr) (*Logger, error) {
 		facility = filepath.Base(os.Args[0])
 	}
 
-	w := &Logger{
+	w := Logger{
 		conn:     conn,
 		isUDP:    strings.HasPrefix(network, "udp"),
 		host:     host,
 		facility: facility,
 	}
 
-	var handler slog.Handler = &handler{w: w}
+	var handler slog.Handler = handler{w: w}
 	if len(attrs) > 0 {
 		handler = handler.WithAttrs(attrs)
 	}
 	w.Logger = slog.New(handler)
 
-	return w, nil
+	return &w, nil
 }
 
 // Close closes a connection to the Graylog server.
-func (w *Logger) Close() error {
+func (w Logger) Close() error {
 	return w.conn.Close()
 }
 
 // LogValue return log value with connection info (network & address).
-func (w *Logger) LogValue() slog.Value {
+func (w Logger) LogValue() slog.Value {
 	if w.conn == nil {
 		return slog.Value{}
 	}
@@ -94,19 +93,19 @@ var ErrMessageToLarge = errors.New("message too large")
 var debug = false // output gelf json before send
 
 // write send a GELF message to the server.
-func (w *Logger) write(b []byte) error {
+func (w Logger) write(b []byte) error {
 	if len(b) == 0 {
 		return nil
 	}
 
-	// debug output
-	if debug {
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		if err := enc.Encode(json.RawMessage(b)); err != nil {
-			return err
-		}
-	}
+	// // debug output
+	// if debug {
+	// 	enc := json.NewEncoder(os.Stdout)
+	// 	enc.SetIndent("", "  ")
+	// 	if err := enc.Encode(json.RawMessage(b)); err != nil {
+	// 		return err
+	// 	}
+	// }
 
 	// send other TCP
 	if !w.isUDP {
@@ -117,8 +116,8 @@ func (w *Logger) write(b []byte) error {
 	// else send other UDP
 
 	// Compress message
-	buf := newBuffer()
-	defer bufPool.Put(buf)
+	buf := buffer.New()
+	defer buf.Free()
 
 	zw := gzip.NewWriter(buf)
 	if _, err := zw.Write(b); err != nil {
@@ -131,13 +130,13 @@ func (w *Logger) write(b []byte) error {
 
 	// Some Graylog components are limited to processing up to 8192 bytes.
 	const maxSize = 8192
-	if buf.Len() <= maxSize {
-		_, err := buf.WriteTo(w.conn)
+	if len(*buf) <= maxSize {
+		_, err := w.conn.Write(*buf)
 		return err
 	}
 
 	// A message MUST NOT consist of more than 128 chunks.
-	count := uint8((buf.Len()-1)/(maxSize-12) + 1)
+	count := uint8((len(*buf)-1)/(maxSize-12) + 1)
 	if count > 128 {
 		return ErrMessageToLarge
 	}
@@ -160,13 +159,12 @@ func (w *Logger) write(b []byte) error {
 	// chunks that have arrived or are in the process of arriving.
 	for i := uint8(0); i < count; i++ {
 		header[10] = i
-		n, err := buf.Read(header[12:])
-		if err != nil && !errors.Is(err, io.EOF) {
-			return err
+		n := copy(header[12:], *buf)
+		if n == 0 {
+			break
 		}
 
-		_, err = w.conn.Write(header[:n+12])
-		if err != nil {
+		if _, err := w.conn.Write(header[:n+12]); err != nil {
 			return err
 		}
 	}

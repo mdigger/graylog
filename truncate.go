@@ -37,5 +37,5 @@ func truncate(s string, max, min int) string {
 		max = i
 	}
 
-	return string(append(runes[:max], '…'))
+	return string(append(runes[:max], '…')) // FIXME: escapes to heap
 }

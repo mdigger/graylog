@@ -1,21 +1,18 @@
 package graylog
 
 import (
-	"bytes"
 	"encoding"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
+	"github.com/mdigger/graylog/internal/buffer"
 	"golang.org/x/exp/slog"
 )
 
-func writeAttr(w *bytes.Buffer, attr slog.Attr, prefix string) {
+func writeAttr(w *buffer.Buffer, attr slog.Attr, prefix string) {
 	if attr.Key == "" {
 		return
 	}
@@ -38,7 +35,7 @@ func writeAttr(w *bytes.Buffer, attr slog.Attr, prefix string) {
 	}
 }
 
-func writeAttrValue(w *bytes.Buffer, name string, value any) error {
+func writeAttrValue(w *buffer.Buffer, name string, value any) error {
 	switch name {
 	case "":
 		return nil
@@ -50,95 +47,54 @@ func writeAttrValue(w *bytes.Buffer, name string, value any) error {
 	w.WriteString(fixName(name))
 	w.WriteString(`":`)
 
-	var (
-		wquote = func(v string) { w.WriteString(strconv.Quote(v)) }
-		wint   = func(v int64) { w.WriteString(strconv.FormatInt(v, 10)) }
-		wuint  = func(v uint64) { w.WriteString(strconv.FormatUint(v, 10)) }
-		wjson  = func(v any) error {
-			b, err := json.Marshal(v)
-			if err != nil {
-				return err
-			}
-			w.Write(b)
-			return nil
-		}
-		wtext = func(v encoding.TextMarshaler) error {
-			b, err := v.MarshalText()
-			if err != nil {
-				return err
-			}
-			wquote(string(b))
-			return nil
-		}
-		wfloat = func(v float64) error {
-			switch {
-			case math.IsInf(v, 1):
-				w.WriteString(`"+Inf"`)
-			case math.IsInf(v, -1):
-				w.WriteString(`"-Inf"`)
-			case math.IsNaN(v):
-				w.WriteString(`"NaN"`)
-			default:
-				return wjson(v)
-			}
-			return nil
-		}
-	)
-
 	switch v := value.(type) {
 	case nil:
 		w.WriteString("null")
 	case string:
-		wquote(v)
+		w.WriteQuoted(v)
 	case int:
-		wint(int64(v))
+		w.WriteInt(int64(v))
 	case int8:
-		wint(int64(v))
+		w.WriteInt(int64(v))
 	case int16:
-		wint(int64(v))
+		w.WriteInt(int64(v))
 	case int32:
-		wint(int64(v))
+		w.WriteInt(int64(v))
 	case int64:
-		wint(v)
+		w.WriteInt(v)
 	case uint:
-		wuint(uint64(v))
+		w.WriteUint(uint64(v))
 	case uint8:
-		wuint(uint64(v))
+		w.WriteUint(uint64(v))
 	case uint16:
-		wuint(uint64(v))
+		w.WriteUint(uint64(v))
 	case uint32:
-		wuint(uint64(v))
+		w.WriteUint(uint64(v))
 	case uint64:
-		wuint(v)
+		w.WriteUint(v)
 	case float32:
-		return wfloat(float64(v))
+		return w.WriteFloat(float64(v))
 	case float64:
-		return wfloat(v)
+		return w.WriteFloat(v)
 	case bool:
-		w.WriteByte('"')
-		w.WriteString(strconv.FormatBool(v))
-		w.WriteByte('"')
+		w.WriteBool(v)
 	case time.Duration:
-		w.WriteByte('"')
-		w.WriteString(v.String())
-		w.WriteByte('"')
+		w.WriteQuoted(v.String())
 	case time.Time:
 		if v.IsZero() {
 			w.WriteString(`""`)
 			break
 		}
 
-		w.WriteByte('"')
-		w.WriteString(v.String())
-		w.WriteByte('"')
+		w.WriteQuoted(v.String())
 	case error:
-		wquote(v.Error())
+		w.WriteQuoted(v.Error())
 	case fmt.Stringer:
-		wquote(v.String())
+		w.WriteQuoted(v.String())
 	case encoding.TextMarshaler:
-		return wtext(v)
+		return w.WriteText(v)
 	default:
-		return wjson(v)
+		return w.WriteJson(v)
 	}
 
 	return nil
@@ -147,18 +103,24 @@ func writeAttrValue(w *bytes.Buffer, name string, value any) error {
 var reName = regexp.MustCompile(`([^\w\.\-]+)`)
 
 func fixName(s string) string {
+	buf := buffer.New()
+	defer buf.Free()
+
 	s = strings.TrimSpace(s)
 	s = reName.ReplaceAllStringFunc(s, func(s string) string {
-		var buf strings.Builder
-		for _, r := range []rune(s) {
+		buf.Reset()
+
+		for _, r := range s {
 			switch {
 			case r <= '\x7F':
-				buf.WriteRune('_')
+				buf.WriteByte('_')
 			default:
-				fmt.Fprintf(&buf, "\\u%04x", r)
+				buf.WriteString(fmt.Sprintf("\\u%04x", r)) // FIXME: r escapes to heap
 			}
 		}
+
 		return buf.String()
 	})
+
 	return strings.Join([]string{"_", s}, "")
 }
