@@ -33,5 +33,8 @@ func main() {
             Text string `json:"text"`
         }{Text: "text"}),
     )
+
+    // register as default
+    slog.SetDefault(log.Logger)
 }
 ```

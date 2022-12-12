@@ -27,4 +27,7 @@ func Example() {
 			Test string `json:"test"`
 		}{Test: "test"}),
 	)
+
+	// register as default
+	slog.SetDefault(log.Logger)
 }
