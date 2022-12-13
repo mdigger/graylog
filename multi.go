@@ -26,8 +26,9 @@ func multi(hs ...slog.Handler) slog.Handler {
 
 func (mh multiHandler) Handle(r slog.Record) error {
 	var firstErr error
-	for _, h := range mh.handlers() {
-		if err := h.Handle(r); err != nil && firstErr == nil {
+	handlers := mh.handlers()
+	for i := range handlers {
+		if err := handlers[i].Handle(r); err != nil && firstErr == nil {
 			firstErr = err
 		}
 	}
@@ -48,8 +49,9 @@ func (mh multiHandler) WithGroup(name string) slog.Handler {
 }
 
 func (mh multiHandler) Enabled(level slog.Level) bool {
-	for _, h := range mh.handlers() {
-		if h.Enabled(level) {
+	handlers := mh.handlers()
+	for i := range handlers {
+		if handlers[i].Enabled(level) {
 			return true
 		}
 	}
@@ -63,8 +65,8 @@ func (mh multiHandler) handlers() []slog.Handler {
 
 func (mh multiHandler) withClone(f func(h slog.Handler) slog.Handler) slog.Handler {
 	handlers := slices.Clone(mh.handlers())
-	for i, h := range handlers {
-		handlers[i] = f(h)
+	for i := range handlers {
+		handlers[i] = f(handlers[i])
 	}
 
 	return multi(handlers...)

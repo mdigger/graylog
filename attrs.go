@@ -23,8 +23,9 @@ func writeAttr(w *buffer.Buffer, attr slog.Attr, prefix string) {
 
 	switch attr.Value.Kind() {
 	case slog.GroupKind:
-		for _, attr := range attr.Value.Group() {
-			writeAttr(w, attr, name)
+		attrs := attr.Value.Group()
+		for i := range attrs {
+			writeAttr(w, attrs[i], name)
 		}
 	case slog.LogValuerKind:
 		attr := slog.Attr{Key: name, Value: attr.Value.Resolve()}

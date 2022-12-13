@@ -92,8 +92,8 @@ func (h handler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	buf := buffer.New()
 	defer buf.Free()
 
-	for _, attr := range attrs {
-		writeAttr(buf, attr, h.group)
+	for i := range attrs {
+		writeAttr(buf, attrs[i], h.group)
 	}
 
 	return handler{
