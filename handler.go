@@ -1,7 +1,6 @@
 package graylog
 
 import (
-	"fmt"
 	"strconv"
 	"time"
 
@@ -63,13 +62,13 @@ func (h handler) Handle(r slog.Record) error {
 	// add source file info on warning and errors only
 	if r.Level >= slog.WarnLevel {
 		if file, line := r.SourceLine(); line != 0 {
-			writeAttrValue(buf, "file", fmt.Sprint(file, ":", line)) // FIXME: escapes to heap
+			_ = writeAttrValue(buf, "file", file+":"+strconv.Itoa(line))
 		}
 	}
 
 	// add stored attributes
 	if len(h.attrs) > 0 {
-		buf.Write(h.attrs)
+		_, _ = buf.Write(h.attrs)
 	}
 
 	// add record attributes

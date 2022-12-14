@@ -79,7 +79,7 @@ func (b *Buffer) WriteJson(v any) error {
 	if err != nil {
 		return err
 	}
-	b.Write(data)
+	_, _ = b.Write(data)
 	return nil
 }
 
