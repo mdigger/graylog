@@ -9,14 +9,14 @@ type priority uint8
 
 const (
 	// From /usr/include/sys/syslog.h.
-	log_EMERG priority = iota
-	log_ALERT
-	log_CRIT
-	log_ERR
-	log_WARNING
-	log_NOTICE
-	log_INFO
-	log_DEBUG
+	log_EMERG   priority = 0
+	log_ALERT   priority = 1
+	log_CRIT    priority = 2
+	log_ERR     priority = 3
+	log_WARNING priority = 4
+	log_NOTICE  priority = 5
+	log_INFO    priority = 6
+	log_DEBUG   priority = 7
 )
 
 func level(l slog.Level) priority {
