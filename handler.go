@@ -16,7 +16,7 @@ type handler struct {
 
 // Enabled reports whether the handler handles records at the slog.DebugLevel.
 func (h handler) Enabled(l slog.Level) bool {
-	return l >= slog.DebugLevel
+	return l >= slog.LevelDebug
 }
 
 // Handle send the log Record to Graylog server.
@@ -60,7 +60,7 @@ func (h handler) Handle(r slog.Record) error {
 	}
 
 	// add source file info on warning and errors only
-	if r.Level >= slog.WarnLevel {
+	if r.Level >= slog.LevelWarn {
 		if file, line := r.SourceLine(); line != 0 {
 			_ = writeAttrValue(buf, "file", file+":"+strconv.Itoa(line))
 		}

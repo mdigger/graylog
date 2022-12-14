@@ -21,21 +21,21 @@ const (
 
 func level(l slog.Level) priority {
 	switch {
-	case l < slog.DebugLevel:
-		return log_DEBUG + priority(slog.DebugLevel-l.Level())
-	case l < slog.InfoLevel:
+	case l < slog.LevelDebug:
+		return log_DEBUG + priority(slog.LevelDebug-l.Level())
+	case l < slog.LevelInfo:
 		return log_DEBUG
-	case l == slog.InfoLevel:
+	case l == slog.LevelInfo:
 		return log_INFO
-	case l < slog.WarnLevel:
+	case l < slog.LevelWarn:
 		return log_NOTICE
-	case l < slog.ErrorLevel:
+	case l < slog.LevelError:
 		return log_WARNING
-	case l == slog.ErrorLevel:
+	case l == slog.LevelError:
 		return log_ERR
-	case l == slog.ErrorLevel+1:
+	case l == slog.LevelError+1:
 		return log_CRIT
-	case l == slog.ErrorLevel+2:
+	case l == slog.LevelError+2:
 		return log_ALERT
 	default:
 		return log_EMERG
