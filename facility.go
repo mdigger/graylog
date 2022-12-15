@@ -6,15 +6,19 @@ import (
 	"runtime/debug"
 )
 
-// Used when generating a log message in GELF format.
-// By default, it is filled in during initialization using the path to the
-// main module of the application.
+// SetFacility set Facility log filed used when generating a log message in
+// GELF format. By default, it is filled in during initialization using the
+// path to the  main module of the application.
 //
 // If you want to change this value, then this must be done before
 // initializing the log.
-var Facility string
+func SetFacility(s string) {
+	facility = s
+}
 
-func init() {
+var facility = initFacility()
+
+func initFacility() string {
 	var name string
 	if buildInfo, ok := debug.ReadBuildInfo(); ok {
 		name = buildInfo.Main.Path
@@ -29,5 +33,5 @@ func init() {
 		name = ""
 	}
 
-	Facility = name
+	return name
 }

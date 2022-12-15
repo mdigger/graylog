@@ -47,7 +47,7 @@ func Dial(network, address string, attrs ...slog.Attr) (*Logger, error) {
 		conn:     conn,
 		isUDP:    strings.HasPrefix(network, "udp"),
 		host:     host,
-		facility: strings.TrimSpace(Facility), // copy to handler,
+		facility: strings.TrimSpace(facility), // copy to handler,
 	}
 
 	var handler slog.Handler = handler{w: w}
