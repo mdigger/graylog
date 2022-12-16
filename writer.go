@@ -15,11 +15,11 @@ import (
 
 // Logger is an io.Logger for sending log messages to the Graylog server.
 type Logger struct {
+	conn net.Conn
 	*slog.Logger
-	conn     net.Conn
-	isUDP    bool
 	host     string
 	facility string
+	isUDP    bool
 }
 
 // Dial establishes a connection to the Graylog server and returns Logger to

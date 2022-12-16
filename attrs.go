@@ -7,8 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mdigger/graylog/internal/buffer"
 	"golang.org/x/exp/slog"
+
+	"github.com/mdigger/graylog/internal/buffer"
 )
 
 func writeAttr(w *buffer.Buffer, attr slog.Attr, prefix string) {
