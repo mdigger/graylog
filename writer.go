@@ -9,7 +9,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/mdigger/graylog/internal/buffer"
 	"golang.org/x/exp/slog"
 )
 
@@ -106,7 +105,7 @@ func (w Logger) write(b []byte) error {
 	// else send other UDP
 
 	// Compress message
-	buf := buffer.New()
+	buf := newBuffer()
 	defer buf.Free()
 
 	zw := gzip.NewWriter(buf)

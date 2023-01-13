@@ -1,5 +1,5 @@
 // Package buffer provides a pool-allocated byte buffer with custom methods.
-package buffer
+package graylog
 
 import (
 	"encoding"
@@ -10,21 +10,21 @@ import (
 )
 
 // buffer adapted from go/src/fmt/print.go
-type Buffer []byte
+type buffer []byte
 
 // Having an initial size gives a dramatic speedup.
 var bufPool = sync.Pool{
 	New: func() any {
 		b := make([]byte, 0, 1024)
-		return (*Buffer)(&b)
+		return (*buffer)(&b)
 	},
 }
 
-func New() *Buffer {
-	return bufPool.Get().(*Buffer)
+func newBuffer() *buffer {
+	return bufPool.Get().(*buffer)
 }
 
-func (b *Buffer) Free() {
+func (b *buffer) Free() {
 	// To reduce peak allocation, return only smaller buffers to the pool.
 	const maxBufferSize = 16 << 10
 	if cap(*b) <= maxBufferSize {
@@ -33,28 +33,28 @@ func (b *Buffer) Free() {
 	}
 }
 
-func (b *Buffer) Reset() {
+func (b *buffer) Reset() {
 	*b = (*b)[:0]
 }
 
-func (b *Buffer) Write(p []byte) (int, error) {
+func (b *buffer) Write(p []byte) (int, error) {
 	*b = append(*b, p...)
 	return len(p), nil
 }
 
-func (b *Buffer) WriteString(s string) {
+func (b *buffer) WriteString(s string) {
 	*b = append(*b, s...)
 }
 
-func (b *Buffer) WriteQuoted(s string) {
+func (b *buffer) WriteQuoted(s string) {
 	*b = strconv.AppendQuote(*b, s)
 }
 
-func (b *Buffer) WriteByte(c byte) {
+func (b *buffer) WriteByte(c byte) {
 	*b = append(*b, c)
 }
 
-func (b *Buffer) WriteBool(v bool) {
+func (b *buffer) WriteBool(v bool) {
 	c := `"false"`
 	if v {
 		c = `"true"`
@@ -62,15 +62,15 @@ func (b *Buffer) WriteBool(v bool) {
 	*b = append(*b, c...)
 }
 
-func (b *Buffer) WriteInt(i int64) {
+func (b *buffer) WriteInt(i int64) {
 	*b = strconv.AppendInt(*b, i, 10)
 }
 
-func (b *Buffer) WriteUint(i uint64) {
+func (b *buffer) WriteUint(i uint64) {
 	*b = strconv.AppendUint(*b, i, 10)
 }
 
-func (b *Buffer) WriteJson(v any) error {
+func (b *buffer) WriteJson(v any) error {
 	data, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -79,7 +79,7 @@ func (b *Buffer) WriteJson(v any) error {
 	return nil
 }
 
-func (b *Buffer) WriteText(v encoding.TextMarshaler) error {
+func (b *buffer) WriteText(v encoding.TextMarshaler) error {
 	data, err := v.MarshalText()
 	if err != nil {
 		return err
@@ -88,7 +88,7 @@ func (b *Buffer) WriteText(v encoding.TextMarshaler) error {
 	return nil
 }
 
-func (b *Buffer) WriteFloat(v float64) error {
+func (b *buffer) WriteFloat(v float64) error {
 	switch {
 	case math.IsInf(v, 1):
 		b.WriteString(`"+Inf"`)
@@ -131,6 +131,6 @@ func (b *Buffer) WriteFloat(v float64) error {
 // 	b.Write(bb[bp:])
 // }
 
-func (b *Buffer) String() string {
+func (b *buffer) String() string {
 	return string(*b)
 }
