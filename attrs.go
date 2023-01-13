@@ -8,11 +8,9 @@ import (
 	"time"
 
 	"golang.org/x/exp/slog"
-
-	"github.com/mdigger/graylog/internal/buffer"
 )
 
-func writeAttr(w *buffer.Buffer, attr slog.Attr, prefix string) {
+func writeAttr(w *buffer, attr slog.Attr, prefix string) {
 	if attr.Key == "" {
 		return
 	}
@@ -36,7 +34,7 @@ func writeAttr(w *buffer.Buffer, attr slog.Attr, prefix string) {
 	}
 }
 
-func writeAttrValue(w *buffer.Buffer, name string, value any) error {
+func writeAttrValue(w *buffer, name string, value any) error {
 	switch name {
 	case "":
 		return nil
@@ -104,7 +102,7 @@ func writeAttrValue(w *buffer.Buffer, name string, value any) error {
 var reName = regexp.MustCompile(`([^\w\.\-]+)`)
 
 func fixName(s string) string {
-	buf := buffer.New()
+	buf := newBuffer()
 	defer buf.Free()
 
 	s = strings.TrimSpace(s)

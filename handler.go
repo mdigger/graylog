@@ -4,7 +4,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/mdigger/graylog/internal/buffer"
 	"golang.org/x/exp/slog"
 )
 
@@ -21,7 +20,7 @@ func (h handler) Enabled(l slog.Level) bool {
 
 // Handle send the log Record to Graylog server.
 func (h handler) Handle(r slog.Record) error {
-	buf := buffer.New()
+	buf := newBuffer()
 	defer buf.Free()
 
 	// GELF header
@@ -88,7 +87,7 @@ func (h handler) WithAttrs(attrs []slog.Attr) slog.Handler {
 		return h
 	}
 
-	buf := buffer.New()
+	buf := newBuffer()
 	defer buf.Free()
 
 	for i := range attrs {
