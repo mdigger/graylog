@@ -21,12 +21,12 @@ func writeAttr(w *buffer, attr slog.Attr, prefix string) {
 	}
 
 	switch attr.Value.Kind() {
-	case slog.GroupKind:
+	case slog.KindGroup:
 		attrs := attr.Value.Group()
 		for i := range attrs {
 			writeAttr(w, attrs[i], name)
 		}
-	case slog.LogValuerKind:
+	case slog.KindLogValuer:
 		attr := slog.Attr{Key: name, Value: attr.Value.Resolve()}
 		writeAttr(w, attr, "")
 	default:

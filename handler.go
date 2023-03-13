@@ -1,6 +1,7 @@
 package graylog
 
 import (
+	"context"
 	"strconv"
 	"time"
 
@@ -14,12 +15,12 @@ type handler struct {
 }
 
 // Enabled reports whether the handler handles records at the slog.DebugLevel.
-func (h handler) Enabled(l slog.Level) bool {
+func (h handler) Enabled(_ context.Context, l slog.Level) bool {
 	return l >= slog.LevelDebug
 }
 
 // Handle send the log Record to Graylog server.
-func (h handler) Handle(r slog.Record) error {
+func (h handler) Handle(_ context.Context, r slog.Record) error {
 	buf := newBuffer()
 	defer buf.Free()
 
@@ -58,12 +59,12 @@ func (h handler) Handle(r slog.Record) error {
 		buf.WriteString(strconv.Quote(h.w.facility))
 	}
 
-	// add source file info on warning and errors only
-	if r.Level >= slog.LevelWarn {
-		if file, line := r.SourceLine(); line != 0 {
-			_ = writeAttrValue(buf, "file", file+":"+strconv.Itoa(line))
-		}
-	}
+	// FIXME: add source file info on warning and errors only
+	// if r.Level >= slog.LevelWarn {
+	// 	if file, line := r.SourceLine(); line != 0 {
+	// 		_ = writeAttrValue(buf, "file", file+":"+strconv.Itoa(line))
+	// 	}
+	// }
 
 	// add stored attributes
 	if len(h.attrs) > 0 {
