@@ -2,4 +2,4 @@ module github.com/mdigger/graylog
 
 go 1.19
 
-require golang.org/x/exp v0.0.0-20230310171629-522b1b587ee0
+require golang.org/x/exp v0.0.0-20230321023759-10a507213a29
